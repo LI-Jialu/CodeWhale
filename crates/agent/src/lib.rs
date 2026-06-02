@@ -503,6 +503,16 @@ impl ModelRegistry {
                     fallback_chain,
                 };
             }
+            if provider_hint == Some(ProviderKind::Atlascloud)
+                && let Some(model) = atlascloud_passthrough_model(name)
+            {
+                return ModelResolution {
+                    requested: Some(name.to_string()),
+                    resolved: model,
+                    used_fallback: false,
+                    fallback_chain,
+                };
+            }
             if let Some(idx) = self.alias_map.get(&normalize(name)) {
                 return ModelResolution {
                     requested: Some(name.to_string()),
@@ -560,6 +570,21 @@ fn preserve_requested_model_id_case(mut model: ModelInfo, requested: &str) -> Mo
         model.id = requested.to_string();
     }
     model
+}
+
+fn atlascloud_passthrough_model(requested: &str) -> Option<ModelInfo> {
+    let requested = requested.trim();
+    if requested.is_empty() || !requested.contains('/') {
+        return None;
+    }
+
+    Some(ModelInfo {
+        id: requested.to_string(),
+        provider: ProviderKind::Atlascloud,
+        aliases: Vec::new(),
+        supports_tools: true,
+        supports_reasoning: true,
+    })
 }
 
 #[cfg(test)]
@@ -628,6 +653,39 @@ mod tests {
 
         assert_eq!(resolved.resolved.provider, ProviderKind::Atlascloud);
         assert_eq!(resolved.resolved.id, "deepseek-ai/deepseek-v4-pro");
+    }
+
+    #[test]
+    fn atlascloud_provider_hint_passes_through_explicit_model_id() {
+        let registry = ModelRegistry::default();
+        let resolved =
+            registry.resolve(Some("openai/gpt-5.2-chat"), Some(ProviderKind::Atlascloud));
+
+        assert_eq!(resolved.resolved.provider, ProviderKind::Atlascloud);
+        assert_eq!(resolved.resolved.id, "openai/gpt-5.2-chat");
+        assert!(resolved.resolved.supports_tools);
+        assert!(resolved.resolved.supports_reasoning);
+        assert!(!resolved.used_fallback);
+    }
+
+    #[test]
+    fn atlascloud_provider_hint_preserves_explicit_model_id_case() {
+        let registry = ModelRegistry::default();
+        let resolved = registry.resolve(Some("Qwen/Qwen3-Coder"), Some(ProviderKind::Atlascloud));
+
+        assert_eq!(resolved.resolved.provider, ProviderKind::Atlascloud);
+        assert_eq!(resolved.resolved.id, "Qwen/Qwen3-Coder");
+        assert!(!resolved.used_fallback);
+    }
+
+    #[test]
+    fn atlascloud_plain_unknown_model_still_uses_provider_default() {
+        let registry = ModelRegistry::default();
+        let resolved = registry.resolve(Some("not-in-atlas"), Some(ProviderKind::Atlascloud));
+
+        assert_eq!(resolved.resolved.provider, ProviderKind::Atlascloud);
+        assert_eq!(resolved.resolved.id, "deepseek-ai/deepseek-v4-flash");
+        assert!(resolved.used_fallback);
     }
 
     #[test]

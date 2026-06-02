@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   adds/removes only the exact current-user PATH entry.
 - Added deterministic session timestamps in session listings, receipt-export
   boundary docs, and current-model turn metadata for routed/auto sessions.
+- Added exact AtlasCloud provider-hinted model ID pass-through for explicit
+  `vendor/model-id` selections, harvested from #2569 without freezing a
+  brittle provider catalog.
 
 ### Changed
 
@@ -42,12 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Community
 
 Thanks to **@ZhulongNT** (#2045), **@cyq1017** (#2521, #2536, #2537, #2559,
-#2562, #2563, #2564), and **@HUQIANTAO** (#2527) for the work harvested into
-this release pass. Thanks also to issue reporters and verification helpers
-including **@New2Niu** (#2561), **@buko** (#2533, #2369), **@wywsoor**
-(#2494), **@ctxyao** (#2556), **@Dr3259** (#2380), and **@caiyilian**
-(#2567) for reports and acceptance details that shaped these fixes, plus the
-WeChat/Chinese UX reports relayed during the final triage pass.
+#2562, #2563, #2564), **@HUQIANTAO** (#2527), and **@lucaszhu-hue** (#2569)
+for the work harvested into this release pass. Thanks also to issue reporters
+and verification helpers including **@New2Niu** (#2561), **@buko** (#2533,
+#2369), **@wywsoor** (#2494), **@ctxyao** (#2556), **@Dr3259** (#2380), and
+**@caiyilian** (#2567) for reports and acceptance details that shaped these
+fixes, plus the WeChat/Chinese UX reports relayed during the final triage pass.
 
 ## [0.8.49] - 2026-06-01
 

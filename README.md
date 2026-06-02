@@ -308,6 +308,7 @@ codewhale --provider nvidia-nim
 # AtlasCloud
 codewhale auth set --provider atlascloud --api-key "YOUR_ATLASCLOUD_API_KEY"
 codewhale --provider atlascloud
+codewhale --provider atlascloud --model vendor/model-id
 
 # Wanjie Ark
 codewhale auth set --provider wanjie-ark --api-key "YOUR_WANJIE_API_KEY"
