@@ -357,10 +357,27 @@ prefix has a single, memorable responsibility:
 | `/memory` | **Small** user prefs/facts only |
 | `/context` | **Dashboard** of all active memory layers (§6) |
 | `/rules` | Repo guidance |
+| `.codewhale/constitution.json` | Repo constitution: checked-in **local law** |
 | `/workflow` (`/whaleflow`) | Long-running multi-agent runs (§4) |
 | `/overlay` | Promoted cached-main lessons (§6/§8) |
 | `$<skill-name>` | Skill invocation — **the token *is* the skill name** |
 | `codebase_search` | Concept-level code retrieval (§2) |
+
+The repo constitution is not another memory bucket. It is the local-law layer in
+a layered authority model:
+
+```
+base myth / global Constitution
+  -> repo constitution (.codewhale/constitution.json)
+  -> task packet
+  -> runtime policy
+```
+
+At conflict time, the **current user request for the task remains above the repo
+constitution**; the repo constitution supplies durable defaults and local law
+only when the active task packet and runtime policy leave room. Runtime policy is
+the compiled enforcement surface for the run, not a separate place for the model
+to invent new rules.
 
 **Why it helps weaker models (and users).** No overloaded command does five
 jobs; the model/user never has to disambiguate *which* `/memory` behavior they
@@ -395,6 +412,7 @@ The submit-time parser (to be added; submit path `ui.rs ~4721`) recognizes the
 ```
 /context
   user-memory      ▸ 7 facts                 (12 KB)   [clear]
+  repo-constitution ▸ .codewhale/constitution.json (4 KB) [view]
   repo-rules       ▸ CLAUDE.md, AGENTS.md     (8 KB)   [view]
   codemap-wiki     ▸ 412 symbols indexed     (auto)    [rebuild]
   trace-store      ▸ 3 recent workflow runs  (—)       [open]

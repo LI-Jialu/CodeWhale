@@ -1,6 +1,6 @@
 # `codebase_search` — Local-First Semantic Code Retrieval
 
-> **Status:** Design note + eval scaffold. **Code is DEFERRED.**
+> **Status:** Design note + planned eval scaffold. **Code is DEFERRED.**
 > GitHub #2680 · Milestone **v0.9.0** · This DOC ships in **v0.8.53** (doc-only; no catalog code in this cycle).
 > Related in-flight: PR #2684 (subagent role vocab / lifecycle signals / eval ergonomics), PR #2685 (git history active + RLM/field errors). This note must not contradict either.
 
@@ -214,7 +214,12 @@ A fixed set of real CodeWhale concept queries, each with the **expected** file(s
 | 14 | Where is the queued user message built on submit? | `crates/tui/src/tui/ui.rs` | `build_queued_message` ~4721 |
 | 15 | Where are speech / TTS tools registered? (duplicate names) | `crates/tui/src/tools/registry.rs` | `speech` ≡ `tts` :787-792 |
 
-Each entry is a `(query, expected_paths[])` row in a fixture (e.g. `crates/tui/tests/fixtures/codebase_search_eval.jsonl`). Phase 1 ships the harness that runs all queries against the live index and reports recall@k and MRR; a regression bar (e.g. recall@10 ≥ target) gates future ranking changes.
+Each entry is intended to become a `(query, expected_paths[])` row in a fixture
+(e.g. `crates/tui/tests/fixtures/codebase_search_eval.jsonl`). This PR ships
+the design table only; the fixture and harness are deferred to Phase 1. The
+Phase 1 harness runs all queries against the live index and reports recall@k
+and MRR; a regression bar (e.g. recall@10 >= target) gates future ranking
+changes.
 
 ---
 
@@ -222,7 +227,7 @@ Each entry is a `(query, expected_paths[])` row in a fixture (e.g. `crates/tui/t
 
 ### Phasing
 
-- **Phase 0 (this cycle, v0.8.53):** this design note + eval fixture only. No catalog code.
+- **Phase 0 (this cycle, v0.8.53):** this design note + benchmark table only. No fixture, harness, or catalog code.
 - **Phase 1 (v0.9.0):** local lexical core — FTS5 `bm25()` + symbol + path + session-relevance + exact grep fallback, fused via RRF. SQLite index at `~/.codewhale/index/<workspace-hash>.db`. Eval harness wired into CI. **No network, no model downloads.** Tool registered as deferred (hydrated via tool-search) initially; promotion to the active first-turn set is a separate, deliberate decision (see lifecycle below) because of the prefix-cache invariant.
 - **Phase 2:** incremental/background reindex, branch-aware invalidation hardening, richer chunkers (tree-sitter per language).
 - **Phase 3 (feature-flagged, off by default):** `sparse-splade` and `dense-embed` RRF signals. Embedding/HF downloads behind the flag + workset opt-in (§3 Privacy).

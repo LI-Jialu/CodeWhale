@@ -205,21 +205,25 @@ separate, deliberate decision per name.
 
 ## 5. Active-catalog budget (per mode, per provider)
 
-The active set is the first-turn cost. Current default active set:
-`DEFAULT_ACTIVE_NATIVE_TOOLS` has **25** entries (`tool_catalog.rs:37-64`).
+The active set is the first-turn cost. Do not duplicate the exact
+`DEFAULT_ACTIVE_NATIVE_TOOLS` count here: adjacent PRs in the v0.8.53 batch may
+add or remove active tools, and the source of truth is always
+`tool_catalog.rs`. This document defines the diet policy and invariants, not a
+second catalog snapshot.
 
 ### Per provider
 
-| Provider | First-turn active source | Current count | Target after diet |
-|---|---|---|---|
-| Default (DeepSeek et al.) | `DEFAULT_ACTIVE_NATIVE_TOOLS` | 25 | ~22 (drop `exec_wait`, `exec_interact`; `todo_*` already not active) |
-| Arcee (Trinity) | `ARCEE_FIRST_TURN_NATIVE_TOOLS` | 8 (read-only WAF workaround) | 8 (unchanged) |
+| Provider | First-turn active source | Budget policy |
+|---|---|---|
+| Default (DeepSeek et al.) | `DEFAULT_ACTIVE_NATIVE_TOOLS` | Remove duplicate aliases from the active head when their canonical twins stay active; any net growth needs an explicit budget decision. |
+| Arcee (Trinity) | `ARCEE_FIRST_TURN_NATIVE_TOOLS` | Provider-specific read-only WAF workaround; unchanged by the default diet unless explicitly reviewed. |
 
 The default diet removes `exec_wait` and `exec_interact` from the active head
 (they become hidden-compat; their canonical twins `exec_shell_wait` /
 `exec_shell_interact` stay). `tts` and `todo_*` are *already not* in the active
-set, so the active count moves **25 → 23** from the wait/interact removal alone;
-the broader target is a stable budget of roughly **≤ 22** canonical tools.
+set, so they do not change the active budget in this diet. The net effect of
+this specific diet is to remove two duplicate active aliases from whatever
+default active head is current after the surrounding v0.8.53 PR batch.
 
 ### Per mode (Plan / Agent / YOLO)
 
@@ -232,7 +236,7 @@ add or remove native tools from `DEFAULT_ACTIVE_NATIVE_TOOLS`
 
 | Mode | Native active budget | MCP tools active? |
 |---|---|---|
-| Plan | same native head (target ≤ 22) | No (deferred) |
+| Plan | same native head | No (deferred) |
 | Agent | same native head | No (deferred) |
 | YOLO | same native head | Yes (a known, intentional widening) |
 
