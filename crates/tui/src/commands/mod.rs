@@ -854,11 +854,35 @@ fn build_relay_instruction(app: &App, focus: Option<&str>) -> String {
 
     if let Ok(plan) = app.plan_state.try_lock() {
         let snapshot = plan.snapshot();
-        if snapshot.explanation.is_some() || !snapshot.items.is_empty() {
+        if !snapshot.is_empty() {
             let _ = writeln!(out, "\nOptional strategy metadata from update_plan:");
-            if let Some(explanation) = snapshot.explanation.as_deref() {
-                let _ = writeln!(out, "- Explanation: {explanation}");
-            }
+            write_plan_field(&mut out, "Title", snapshot.title.as_deref());
+            write_plan_field(&mut out, "Objective", snapshot.objective.as_deref());
+            write_plan_field(&mut out, "Context", snapshot.context_summary.as_deref());
+            write_plan_field(&mut out, "Explanation", snapshot.explanation.as_deref());
+            write_plan_list(&mut out, "Source", &snapshot.sources_used);
+            write_plan_list(&mut out, "Critical file", &snapshot.critical_files);
+            write_plan_list(&mut out, "Constraint", &snapshot.constraints);
+            write_plan_field(
+                &mut out,
+                "Recommended approach",
+                snapshot.recommended_approach.as_deref(),
+            );
+            write_plan_field(
+                &mut out,
+                "Verification plan",
+                snapshot.verification_plan.as_deref(),
+            );
+            write_plan_field(
+                &mut out,
+                "Risks and unknowns",
+                snapshot.risks_and_unknowns.as_deref(),
+            );
+            write_plan_field(
+                &mut out,
+                "Handoff packet",
+                snapshot.handoff_packet.as_deref(),
+            );
             for item in snapshot.items {
                 let _ = writeln!(out, "- [{}] {}", plan_status_label(&item.status), item.step);
             }
@@ -902,6 +926,21 @@ fn build_relay_instruction(app: &App, focus: Option<&str>) -> String {
         "\nKeep it under about 900 words unless the session genuinely needs more. After writing, report the path and the single next action."
     );
     out
+}
+
+fn write_plan_field(out: &mut String, label: &str, value: Option<&str>) {
+    if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
+        let _ = writeln!(out, "- {label}: {value}");
+    }
+}
+
+fn write_plan_list(out: &mut String, label: &str, values: &[String]) {
+    for value in values {
+        let value = value.trim();
+        if !value.is_empty() {
+            let _ = writeln!(out, "- {label}: {value}");
+        }
+    }
 }
 
 fn plan_status_label(status: &crate::tools::plan::StepStatus) -> &'static str {
@@ -1166,11 +1205,18 @@ mod tests {
         {
             let mut plan = app.plan_state.try_lock().expect("plan lock");
             plan.update(UpdatePlanArgs {
+                objective: Some("Keep relays grounded".to_string()),
                 explanation: Some("RLM-style strategy".to_string()),
+                sources_used: vec!["transcript context".to_string()],
+                critical_files: vec!["crates/tui/src/commands/mod.rs".to_string()],
+                constraints: vec!["Do not invent verification".to_string()],
+                verification_plan: Some("Check relay prompt assertions".to_string()),
+                handoff_packet: Some("Next thread should read the Work checklist".to_string()),
                 plan: vec![PlanItemArg {
                     step: "keep checklist primary".to_string(),
                     status: StepStatus::InProgress,
                 }],
+                ..UpdatePlanArgs::default()
             });
         }
 
@@ -1197,7 +1243,13 @@ mod tests {
         assert!(message.contains("#1 [completed] inspect workspace"));
         assert!(message.contains("#2 [in_progress] patch relay command"));
         assert!(message.contains("Optional strategy metadata from update_plan"));
+        assert!(message.contains("Objective: Keep relays grounded"));
         assert!(message.contains("Explanation: RLM-style strategy"));
+        assert!(message.contains("Source: transcript context"));
+        assert!(message.contains("Critical file: crates/tui/src/commands/mod.rs"));
+        assert!(message.contains("Constraint: Do not invent verification"));
+        assert!(message.contains("Verification plan: Check relay prompt assertions"));
+        assert!(message.contains("Handoff packet: Next thread should read the Work checklist"));
         assert!(message.contains("[in_progress] keep checklist primary"));
     }
 

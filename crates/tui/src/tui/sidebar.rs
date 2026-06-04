@@ -949,9 +949,13 @@ fn sidebar_tool_row_from_cell(cell: &HistoryCell) -> Option<SidebarToolRow> {
             name: "update_plan".to_string(),
             status: plan.status,
             summary: plan
-                .explanation
+                .snapshot
+                .objective
                 .as_deref()
-                .or_else(|| plan.steps.first().map(|step| step.step.as_str()))
+                .or(plan.snapshot.title.as_deref())
+                .or(plan.snapshot.explanation.as_deref())
+                .or(plan.snapshot.recommended_approach.as_deref())
+                .or_else(|| plan.snapshot.items.first().map(|step| step.step.as_str()))
                 .unwrap_or("")
                 .to_string(),
             duration_ms: None,

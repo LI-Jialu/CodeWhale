@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `.github/AUTHOR_MAP` and a CI co-author credit check so harvested
   commits use GitHub-mappable numeric noreply identities instead of `.local`,
   placeholder, bot/tool, or raw third-party emails.
+- Added rich PlanArtifact support to `update_plan`: Plan mode can now carry
+  grounded objectives, context, sources, critical files, constraints,
+  verification, risks, and handoff notes through the transcript card, Plan
+  confirmation prompt, `/relay`, fork-state, and saved-session replay.
 
 ### Changed
 
@@ -58,8 +62,9 @@ Thanks to **@cyq1017** for the restore-listing implementation (#2513) and
 **@HUQIANTAO** for the `web_run` lock-splitting work (#2502) and turn-metadata
 prefix-cache stability work (#2517), **@xyuai** for canonical CodeWhale
 settings-path migration work (#2730), **@gaord** for the runtime thread
-workspace update API (#2640), and **@shenjackyuanjie** for the
-HarmonyOS/OpenHarmony port and MatePad Edge validation trail (#2634).
+workspace update API (#2640), **@shenjackyuanjie** for the
+HarmonyOS/OpenHarmony port and MatePad Edge validation trail (#2634), and
+**@idling11** for the PlanArtifact direction in Plan mode (#2733).
 
 ## [0.8.53] - 2026-06-03
 

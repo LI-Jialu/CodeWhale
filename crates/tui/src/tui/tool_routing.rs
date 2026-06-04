@@ -5,14 +5,15 @@ use std::time::Instant;
 
 use crate::hooks::HookEvent;
 use crate::tools::ReviewOutput;
+use crate::tools::plan::PlanSnapshot;
 use crate::tools::spec::{ToolError, ToolResult};
 use crate::tui::active_cell::ActiveCell;
 use crate::tui::app::{App, ToolDetailRecord, ToolEvidence};
 use crate::tui::history::{
     DiffPreviewCell, ExecCell, ExecSource, ExploringEntry, GenericToolCell, HistoryCell,
-    McpToolCell, PatchSummaryCell, PlanStep, PlanUpdateCell, ReviewCell, ToolCell, ToolStatus,
-    ViewImageCell, WebSearchCell, output_looks_like_diff, summarize_mcp_output,
-    summarize_tool_args, summarize_tool_output,
+    McpToolCell, PatchSummaryCell, PlanUpdateCell, ReviewCell, ToolCell, ToolStatus, ViewImageCell,
+    WebSearchCell, output_looks_like_diff, summarize_mcp_output, summarize_tool_args,
+    summarize_tool_output,
 };
 
 #[allow(clippy::too_many_lines)]
@@ -142,15 +143,14 @@ pub(super) fn handle_tool_call_started(
     }
 
     if name == "update_plan" {
-        let (explanation, steps) = parse_plan_input(input);
+        let snapshot = parse_plan_input(input);
         push_active_tool_cell(
             app,
             &id,
             name,
             input,
             HistoryCell::Tool(ToolCell::PlanUpdate(PlanUpdateCell {
-                explanation,
-                steps,
+                snapshot,
                 status: ToolStatus::Running,
             })),
         );
@@ -936,28 +936,8 @@ fn review_target_label(input: &serde_json::Value) -> String {
     target.to_string()
 }
 
-fn parse_plan_input(input: &serde_json::Value) -> (Option<String>, Vec<PlanStep>) {
-    let explanation = input
-        .get("explanation")
-        .and_then(|v| v.as_str())
-        .map(std::string::ToString::to_string);
-    let mut steps = Vec::new();
-    if let Some(items) = input.get("plan").and_then(|v| v.as_array()) {
-        for item in items {
-            let step = item.get("step").and_then(|v| v.as_str()).unwrap_or("");
-            let status = item
-                .get("status")
-                .and_then(|v| v.as_str())
-                .unwrap_or("pending");
-            if !step.is_empty() {
-                steps.push(PlanStep {
-                    step: step.to_string(),
-                    status: status.to_string(),
-                });
-            }
-        }
-    }
-    (explanation, steps)
+fn parse_plan_input(input: &serde_json::Value) -> PlanSnapshot {
+    PlanSnapshot::from_tool_input(input)
 }
 
 fn parse_patch_summary(input: &serde_json::Value) -> (String, String) {
@@ -1185,4 +1165,62 @@ fn exec_is_background(input: &serde_json::Value) -> bool {
         .get("background")
         .and_then(serde_json::Value::as_bool)
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tools::plan::StepStatus;
+    use serde_json::json;
+
+    #[test]
+    fn parse_plan_input_accepts_legacy_payload() {
+        let snapshot = parse_plan_input(&json!({
+            "explanation": "Legacy explanation",
+            "plan": [
+                { "step": "inspect", "status": "completed" },
+                { "step": "patch", "status": "in_progress" }
+            ]
+        }));
+
+        assert_eq!(snapshot.explanation.as_deref(), Some("Legacy explanation"));
+        assert_eq!(snapshot.items.len(), 2);
+        assert_eq!(snapshot.items[0].status, StepStatus::Completed);
+        assert_eq!(snapshot.items[1].status, StepStatus::InProgress);
+    }
+
+    #[test]
+    fn parse_plan_input_extracts_rich_artifact_fields() {
+        let snapshot = parse_plan_input(&json!({
+            "title": " PlanArtifact ",
+            "objective": "Make Plan mode reviewable",
+            "context_summary": "Grounded in issue #2691",
+            "sources_used": [" gh issue view 2691 ", ""],
+            "critical_files": ["crates/tui/src/tools/plan.rs"],
+            "constraints": ["No secrets"],
+            "recommended_approach": "Enrich update_plan",
+            "verification_plan": "Run focused tests",
+            "risks_and_unknowns": "Replay may drift",
+            "handoff_packet": "Continue with session replay",
+            "plan": [
+                { "step": " ", "status": "completed" },
+                { "step": "render all fields", "status": "weird" }
+            ]
+        }));
+
+        assert_eq!(snapshot.title.as_deref(), Some("PlanArtifact"));
+        assert_eq!(snapshot.sources_used, vec!["gh issue view 2691"]);
+        assert_eq!(
+            snapshot.critical_files,
+            vec!["crates/tui/src/tools/plan.rs"]
+        );
+        assert_eq!(snapshot.constraints, vec!["No secrets"]);
+        assert_eq!(
+            snapshot.verification_plan.as_deref(),
+            Some("Run focused tests")
+        );
+        assert_eq!(snapshot.items.len(), 1);
+        assert_eq!(snapshot.items[0].step, "render all fields");
+        assert_eq!(snapshot.items[0].status, StepStatus::Pending);
+    }
 }

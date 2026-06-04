@@ -11,6 +11,7 @@ use unicode_width::UnicodeWidthStr;
 use crate::deepseek_theme::active_theme;
 use crate::models::{ContentBlock, Message};
 use crate::palette;
+use crate::tools::plan::{PlanSnapshot, StepStatus};
 use crate::tools::review::ReviewOutput;
 use crate::tui::app::TranscriptSpacing;
 use crate::tui::diff_render;
@@ -651,6 +652,12 @@ pub fn history_cells_from_message(msg: &Message) -> Vec<HistoryCell> {
                     });
                 }
             }
+            ContentBlock::ToolUse { name, input, .. } if name == "update_plan" => {
+                cells.push(HistoryCell::Tool(ToolCell::PlanUpdate(PlanUpdateCell {
+                    snapshot: PlanSnapshot::from_tool_input(input),
+                    status: ToolStatus::Success,
+                })));
+            }
             _ => {}
         }
     }
@@ -883,8 +890,7 @@ pub struct ExploringEntry {
 /// Cell for plan updates emitted by the plan tool.
 #[derive(Debug, Clone)]
 pub struct PlanUpdateCell {
-    pub explanation: Option<String>,
-    pub steps: Vec<PlanStep>,
+    pub snapshot: PlanSnapshot,
     pub status: ToolStatus,
 }
 
@@ -900,39 +906,68 @@ impl PlanUpdateCell {
             low_motion,
         ));
 
-        if let Some(explanation) = self.explanation.as_ref() {
-            lines.extend(render_message(
-                "",
-                system_label_style(),
-                system_body_style(),
-                explanation,
-                width,
-            ));
-        }
-
-        for step in &self.steps {
-            let marker = match step.status.as_str() {
-                "completed" => "done",
-                "in_progress" => "live",
-                _ => "next",
-            };
-            lines.extend(render_compact_kv(
-                marker,
-                &step.step,
-                tool_value_style(),
-                width,
-            ));
-        }
+        render_plan_snapshot_lines(&self.snapshot, &mut lines, width);
 
         lines
     }
 }
 
-/// Single plan step rendered in the UI.
-#[derive(Debug, Clone)]
-pub struct PlanStep {
-    pub step: String,
-    pub status: String,
+fn render_plan_snapshot_lines(snapshot: &PlanSnapshot, lines: &mut Vec<Line<'static>>, width: u16) {
+    render_plan_optional(lines, "title", snapshot.title.as_deref(), width);
+    render_plan_optional(lines, "objective", snapshot.objective.as_deref(), width);
+    render_plan_optional(lines, "context", snapshot.context_summary.as_deref(), width);
+    render_plan_optional(lines, "explain", snapshot.explanation.as_deref(), width);
+    render_plan_list(lines, "source", &snapshot.sources_used, width);
+    render_plan_list(lines, "file", &snapshot.critical_files, width);
+    render_plan_list(lines, "constraint", &snapshot.constraints, width);
+    render_plan_optional(
+        lines,
+        "approach",
+        snapshot.recommended_approach.as_deref(),
+        width,
+    );
+    render_plan_optional(
+        lines,
+        "verify",
+        snapshot.verification_plan.as_deref(),
+        width,
+    );
+    render_plan_optional(lines, "risk", snapshot.risks_and_unknowns.as_deref(), width);
+    render_plan_optional(lines, "handoff", snapshot.handoff_packet.as_deref(), width);
+
+    for step in &snapshot.items {
+        let marker = match step.status {
+            StepStatus::Completed => "done",
+            StepStatus::InProgress => "live",
+            StepStatus::Pending => "next",
+        };
+        lines.extend(render_compact_kv(
+            marker,
+            &step.step,
+            tool_value_style(),
+            width,
+        ));
+    }
+}
+
+fn render_plan_optional(
+    lines: &mut Vec<Line<'static>>,
+    label: &str,
+    value: Option<&str>,
+    width: u16,
+) {
+    if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
+        lines.extend(render_compact_kv(label, value, tool_value_style(), width));
+    }
+}
+
+fn render_plan_list(lines: &mut Vec<Line<'static>>, label: &str, values: &[String], width: u16) {
+    for value in values {
+        let value = value.trim();
+        if !value.is_empty() {
+            lines.extend(render_compact_kv(label, value, tool_value_style(), width));
+        }
+    }
 }
 
 /// Cell for patch summaries emitted by the patch tool.
@@ -3434,8 +3469,8 @@ fn looks_like_file_path(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        ASSISTANT_GLYPH, ExecCell, ExecSource, GenericToolCell, HistoryCell, PlanStep,
-        PlanUpdateCell, REASONING_CURSOR, REASONING_OPENER, REASONING_RAIL, TOOL_RUNNING_SYMBOLS,
+        ASSISTANT_GLYPH, ExecCell, ExecSource, GenericToolCell, HistoryCell, PlanUpdateCell,
+        REASONING_CURSOR, REASONING_OPENER, REASONING_RAIL, TOOL_RUNNING_SYMBOLS,
         TOOL_STATUS_SYMBOL_MS, ToolCell, ToolStatus, TranscriptRenderOptions, USER_GLYPH,
         assistant_label_style_for, extract_reasoning_summary, render_thinking,
         running_status_label_with_elapsed,
@@ -3443,6 +3478,7 @@ mod tests {
     use crate::deepseek_theme::Theme;
     use crate::models::{ContentBlock, Message};
     use crate::palette;
+    use crate::tools::plan::{PlanSnapshot, StepStatus};
     use ratatui::style::Modifier;
     use std::time::{Duration, Instant};
 
@@ -3921,6 +3957,40 @@ mod tests {
         assert_eq!(model, "deepseek-v4-flash");
         assert_eq!(timestamp, "2026-04-28T00:00:00Z");
         assert_eq!(summary, "Summary body");
+    }
+
+    #[test]
+    fn history_replays_update_plan_tool_use_as_plan_card() {
+        let msg = Message {
+            role: "assistant".to_string(),
+            content: vec![ContentBlock::ToolUse {
+                id: "plan-1".to_string(),
+                name: "update_plan".to_string(),
+                input: serde_json::json!({
+                    "objective": "Make Plan mode reviewable",
+                    "sources_used": ["gh issue view 2691"],
+                    "critical_files": ["crates/tui/src/tools/plan.rs"],
+                    "plan": [
+                        { "step": "render replay card", "status": "completed" }
+                    ]
+                }),
+                caller: None,
+            }],
+        };
+
+        let cells = super::history_cells_from_message(&msg);
+        assert_eq!(cells.len(), 1);
+        let HistoryCell::Tool(ToolCell::PlanUpdate(cell)) = &cells[0] else {
+            panic!("expected update_plan replay cell");
+        };
+
+        assert_eq!(cell.status, ToolStatus::Success);
+        assert_eq!(
+            cell.snapshot.objective.as_deref(),
+            Some("Make Plan mode reviewable")
+        );
+        assert_eq!(cell.snapshot.sources_used, vec!["gh issue view 2691"]);
+        assert_eq!(cell.snapshot.items[0].status, StepStatus::Completed);
     }
 
     #[test]
@@ -4602,21 +4672,23 @@ mod tests {
     fn plan_update_cell_renders_with_dark_theme_tokens() {
         let theme = Theme::dark();
         let cell = PlanUpdateCell {
-            explanation: None,
-            steps: vec![
-                PlanStep {
-                    step: "scan repo".to_string(),
-                    status: "completed".to_string(),
-                },
-                PlanStep {
-                    step: "extract theme".to_string(),
-                    status: "in_progress".to_string(),
-                },
-                PlanStep {
-                    step: "land tests".to_string(),
-                    status: "pending".to_string(),
-                },
-            ],
+            snapshot: PlanSnapshot {
+                items: vec![
+                    crate::tools::plan::PlanItemArg {
+                        step: "scan repo".to_string(),
+                        status: StepStatus::Completed,
+                    },
+                    crate::tools::plan::PlanItemArg {
+                        step: "extract theme".to_string(),
+                        status: StepStatus::InProgress,
+                    },
+                    crate::tools::plan::PlanItemArg {
+                        step: "land tests".to_string(),
+                        status: StepStatus::Pending,
+                    },
+                ],
+                ..PlanSnapshot::default()
+            },
             status: ToolStatus::Running,
         };
 
@@ -4689,6 +4761,52 @@ mod tests {
         assert_eq!(visible[1].trim_end(), "▏ done: scan repo");
         assert_eq!(visible[2].trim_end(), "▏ live: extract theme");
         assert_eq!(visible[3].trim_end(), "▏ next: land tests");
+    }
+
+    #[test]
+    fn plan_update_cell_renders_rich_artifact_metadata() {
+        let cell = PlanUpdateCell {
+            snapshot: PlanSnapshot {
+                objective: Some("Make Plan mode reviewable".to_string()),
+                context_summary: Some("Grounded in issue #2691".to_string()),
+                sources_used: vec!["gh issue view 2691".to_string()],
+                critical_files: vec!["crates/tui/src/tools/plan.rs".to_string()],
+                constraints: vec!["Keep checklist primary".to_string()],
+                recommended_approach: Some(
+                    "Enrich update_plan without breaking legacy calls".to_string(),
+                ),
+                verification_plan: Some("Run focused renderer tests".to_string()),
+                risks_and_unknowns: Some("Metadata-only plans can disappear".to_string()),
+                handoff_packet: Some("Next agent should inspect relay output".to_string()),
+                items: vec![crate::tools::plan::PlanItemArg {
+                    step: "Render artifact sections".to_string(),
+                    status: StepStatus::InProgress,
+                }],
+                ..PlanSnapshot::default()
+            },
+            status: ToolStatus::Success,
+        };
+
+        let visible = cell
+            .lines_with_motion(120, true)
+            .into_iter()
+            .map(|line| {
+                line.spans
+                    .into_iter()
+                    .map(|span| span.content.into_owned())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(visible.contains("objective:"));
+        assert!(visible.contains("Make Plan mode reviewable"));
+        assert!(visible.contains("source:"));
+        assert!(visible.contains("gh issue view 2691"));
+        assert!(visible.contains("file:"));
+        assert!(visible.contains("verify:"));
+        assert!(visible.contains("handoff:"));
+        assert!(visible.contains("Render artifact sections"));
     }
 
     #[test]

@@ -232,6 +232,11 @@ Or switch directly:
 
 Plan mode is the safest place to start in an unfamiliar repository. It is for
 inspection and decision-making, not file edits.
+For non-trivial work, Plan mode's confirmation prompt can show a grounded
+PlanArtifact: objective, context, sources used, critical files, constraints,
+approach, verification plan, risks, and handoff notes. Empty sections are
+visible when the agent uses the rich artifact shape, so you can ask for a
+revision instead of accepting an under-specified plan.
 
 Agent mode is the default for most contribution work. It lets CodeWhale read,
 run checks, and edit files while keeping risky actions behind approval gates.

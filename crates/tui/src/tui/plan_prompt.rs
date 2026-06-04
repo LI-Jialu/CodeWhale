@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph, Widget, Wrap};
 use unicode_width::UnicodeWidthStr;
 
 use crate::palette;
-use crate::tools::plan::PlanSnapshot;
+use crate::tools::plan::{PlanSnapshot, StepStatus};
 use crate::tui::views::{ModalKind, ModalView, ViewAction, ViewEvent};
 
 struct PlanOption {
@@ -371,36 +371,7 @@ impl ModalView for PlanPromptView {
 
         // v0.8.44: render plan details when update_plan was called (#834)
         if let Some(ref plan) = self.plan {
-            if let Some(ref explanation) = plan.explanation {
-                for line in wrap_text(explanation, content_width) {
-                    lines.push(Line::from(Span::styled(
-                        line,
-                        Style::default().fg(palette::TEXT_MUTED),
-                    )));
-                }
-                lines.push(Line::from(""));
-            }
-            if !plan.items.is_empty() {
-                lines.push(Line::from(Span::styled(
-                    "Plan steps:",
-                    Style::default().fg(palette::DEEPSEEK_SKY).bold(),
-                )));
-                for (i, item) in plan.items.iter().enumerate() {
-                    let status_mark = match item.status {
-                        crate::tools::plan::StepStatus::Pending => "\u{b7}",
-                        crate::tools::plan::StepStatus::InProgress => "\u{25b6}",
-                        crate::tools::plan::StepStatus::Completed => "\u{2713}",
-                    };
-                    let step_text = format!("  {status_mark} {}. {}", i + 1, &item.step);
-                    for line in wrap_text(&step_text, content_width) {
-                        lines.push(Line::from(Span::styled(
-                            line,
-                            Style::default().fg(palette::TEXT_PRIMARY),
-                        )));
-                    }
-                }
-                lines.push(Line::from(""));
-            }
+            push_plan_snapshot_lines(&mut lines, plan, content_width);
         }
 
         for (idx, option) in PLAN_OPTIONS.iter().enumerate() {
@@ -418,10 +389,15 @@ impl ModalView for PlanPromptView {
         // Since plan steps are now pre-wrapped via wrap_text(), each Line is
         // already width-bounded — use the raw line count directly.
         let total_lines = lines.len();
+        // Borders and padding consume rows inside the modal. Slice the visible
+        // lines ourselves instead of relying on Paragraph's internal clamp so
+        // bottom-jump scrolling reliably reaches the action rows.
         let visible_lines = usize::from(popup_area.height).saturating_sub(4).max(1);
         let max_scroll = total_lines.saturating_sub(visible_lines);
         self.last_max_scroll.set(max_scroll);
         let scroll = self.scroll.min(max_scroll);
+        let rendered_lines: Vec<Line<'static>> =
+            lines.into_iter().skip(scroll).take(visible_lines).collect();
 
         // Build footer: scroll indicator (left) + data-driven option shortcuts +
         // description of the currently selected option (right).
@@ -468,14 +444,211 @@ impl ModalView for PlanPromptView {
         // which breaks only on display-width overflow, not on script boundaries
         // (Latin ↔ CJK).  This avoids forced line-breaks between English and
         // Chinese characters when there is still room on the current line.
-        let paragraph = Paragraph::new(lines)
+        let paragraph = Paragraph::new(rendered_lines)
             .alignment(Alignment::Left)
             .wrap(Wrap { trim: false })
-            .block(modal_block().title_bottom(Line::from(footer_spans)))
-            .scroll((u16::try_from(scroll).unwrap_or(u16::MAX), 0));
+            .block(modal_block().title_bottom(Line::from(footer_spans)));
 
         paragraph.render(popup_area, buf);
     }
+}
+
+fn push_plan_snapshot_lines(
+    lines: &mut Vec<Line<'static>>,
+    plan: &PlanSnapshot,
+    content_width: usize,
+) {
+    let show_empty = plan_uses_rich_artifact_shape(plan);
+    push_plan_text(
+        lines,
+        "Title",
+        plan.title.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Objective",
+        plan.objective.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Context",
+        plan.context_summary.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Explanation",
+        plan.explanation.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_list(
+        lines,
+        "Sources used",
+        &plan.sources_used,
+        content_width,
+        show_empty,
+    );
+    push_plan_list(
+        lines,
+        "Critical files",
+        &plan.critical_files,
+        content_width,
+        show_empty,
+    );
+    push_plan_list(
+        lines,
+        "Constraints",
+        &plan.constraints,
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Recommended approach",
+        plan.recommended_approach.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Verification plan",
+        plan.verification_plan.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Risks and unknowns",
+        plan.risks_and_unknowns.as_deref(),
+        content_width,
+        show_empty,
+    );
+    push_plan_text(
+        lines,
+        "Handoff packet",
+        plan.handoff_packet.as_deref(),
+        content_width,
+        show_empty,
+    );
+
+    if !plan.items.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "Plan steps:",
+            Style::default().fg(palette::DEEPSEEK_SKY).bold(),
+        )));
+        for (i, item) in plan.items.iter().enumerate() {
+            let status_mark = match item.status {
+                StepStatus::Pending => "\u{b7}",
+                StepStatus::InProgress => "\u{25b6}",
+                StepStatus::Completed => "\u{2713}",
+            };
+            let step_text = format!("  {status_mark} {}. {}", i + 1, &item.step);
+            for line in wrap_text(&step_text, content_width) {
+                lines.push(Line::from(Span::styled(
+                    line,
+                    Style::default().fg(palette::TEXT_PRIMARY),
+                )));
+            }
+        }
+        lines.push(Line::from(""));
+    } else if show_empty {
+        lines.push(Line::from(Span::styled(
+            "Plan steps:",
+            Style::default().fg(palette::DEEPSEEK_SKY).bold(),
+        )));
+        lines.push(Line::from(Span::styled(
+            "  Not provided",
+            Style::default().fg(palette::TEXT_MUTED).italic(),
+        )));
+        lines.push(Line::from(""));
+    }
+}
+
+fn plan_uses_rich_artifact_shape(plan: &PlanSnapshot) -> bool {
+    plan.title.is_some()
+        || plan.objective.is_some()
+        || plan.context_summary.is_some()
+        || !plan.sources_used.is_empty()
+        || !plan.critical_files.is_empty()
+        || !plan.constraints.is_empty()
+        || plan.recommended_approach.is_some()
+        || plan.verification_plan.is_some()
+        || plan.risks_and_unknowns.is_some()
+        || plan.handoff_packet.is_some()
+}
+
+fn push_plan_text(
+    lines: &mut Vec<Line<'static>>,
+    label: &'static str,
+    value: Option<&str>,
+    content_width: usize,
+    show_empty: bool,
+) {
+    let value = value.map(str::trim).filter(|value| !value.is_empty());
+    if value.is_none() && !show_empty {
+        return;
+    };
+    lines.push(Line::from(Span::styled(
+        format!("{label}:"),
+        Style::default().fg(palette::DEEPSEEK_SKY).bold(),
+    )));
+    let (value, style) = value.map_or_else(
+        || {
+            (
+                "Not provided",
+                Style::default().fg(palette::TEXT_MUTED).italic(),
+            )
+        },
+        |value| (value, Style::default().fg(palette::TEXT_MUTED)),
+    );
+    for line in wrap_text(value, content_width) {
+        lines.push(Line::from(Span::styled(format!("  {line}"), style)));
+    }
+    lines.push(Line::from(""));
+}
+
+fn push_plan_list(
+    lines: &mut Vec<Line<'static>>,
+    label: &'static str,
+    values: &[String],
+    content_width: usize,
+    show_empty: bool,
+) {
+    let values: Vec<&str> = values
+        .iter()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .collect();
+    if values.is_empty() && !show_empty {
+        return;
+    }
+    lines.push(Line::from(Span::styled(
+        format!("{label}:"),
+        Style::default().fg(palette::DEEPSEEK_SKY).bold(),
+    )));
+    if values.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "  Not provided",
+            Style::default().fg(palette::TEXT_MUTED).italic(),
+        )));
+        lines.push(Line::from(""));
+        return;
+    }
+    for value in values {
+        for line in wrap_text(&format!("- {value}"), content_width) {
+            lines.push(Line::from(Span::styled(
+                format!("  {line}"),
+                Style::default().fg(palette::TEXT_MUTED),
+            )));
+        }
+    }
+    lines.push(Line::from(""));
 }
 
 /// Wrap text into lines no wider than `width` characters.
@@ -596,6 +769,63 @@ mod tests {
     }
 
     #[test]
+    fn plan_prompt_renders_rich_plan_artifact_sections() {
+        use crate::tools::plan::{PlanItemArg, PlanSnapshot, StepStatus};
+
+        let plan = PlanSnapshot {
+            title: Some("PlanArtifact rollout".to_string()),
+            objective: Some("Make Plan mode reviewable".to_string()),
+            context_summary: Some("Issue #2691 asks for grounded plan artifacts.".to_string()),
+            sources_used: vec!["gh issue view 2691".to_string()],
+            critical_files: vec!["crates/tui/src/tools/plan.rs".to_string()],
+            constraints: vec!["Preserve legacy update_plan payloads".to_string()],
+            recommended_approach: Some(
+                "Keep checklist primary and enrich update_plan.".to_string(),
+            ),
+            verification_plan: Some("Run focused plan prompt tests.".to_string()),
+            risks_and_unknowns: Some("Avoid dropping metadata-only plans.".to_string()),
+            handoff_packet: Some("Continue with transcript replay checks.".to_string()),
+            items: vec![PlanItemArg {
+                step: "Render rich sections".to_string(),
+                status: StepStatus::InProgress,
+            }],
+            ..PlanSnapshot::default()
+        };
+        let view = PlanPromptView::new(Some(plan));
+        let rendered = render_view(&view, 160, 120);
+
+        assert!(rendered.contains("Objective:"));
+        assert!(rendered.contains("Make Plan mode reviewable"));
+        assert!(rendered.contains("Sources used:"));
+        assert!(rendered.contains("gh issue view 2691"));
+        assert!(rendered.contains("Critical files:"));
+        assert!(rendered.contains("Verification plan:"));
+        assert!(rendered.contains("Handoff packet:"));
+        assert!(rendered.contains("Render rich sections"));
+    }
+
+    #[test]
+    fn plan_prompt_renders_empty_artifact_sections_for_rich_plans() {
+        use crate::tools::plan::PlanSnapshot;
+
+        let plan = PlanSnapshot {
+            objective: Some("Review grounded plan".to_string()),
+            ..PlanSnapshot::default()
+        };
+        let view = PlanPromptView::new(Some(plan));
+        let rendered = render_view(&view, 160, 120);
+
+        assert!(rendered.contains("Objective:"));
+        assert!(rendered.contains("Review grounded plan"));
+        assert!(rendered.contains("Sources used:"));
+        assert!(rendered.contains("Critical files:"));
+        assert!(rendered.contains("Verification plan:"));
+        assert!(rendered.contains("Risks and unknowns:"));
+        assert!(rendered.contains("Plan steps:"));
+        assert!(rendered.contains("Not provided"));
+    }
+
+    #[test]
     fn plan_prompt_shows_scroll_indicator_when_content_overflows() {
         use crate::tools::plan::{PlanItemArg, PlanSnapshot, StepStatus};
 
@@ -608,6 +838,7 @@ mod tests {
                 };
                 20
             ],
+            ..PlanSnapshot::default()
         };
         let view = PlanPromptView::new(Some(plan));
         // Render into a small area so content overflows.
@@ -672,10 +903,11 @@ mod tests {
                 };
                 30
             ],
+            ..PlanSnapshot::default()
         };
         let mut view = PlanPromptView::new(Some(plan));
         // Set scroll far beyond content.
-        view.scroll = 999;
+        view.scroll = usize::MAX;
         let rendered = render_view(&view, 80, 20);
 
         // The rendered view should still contain the last option.

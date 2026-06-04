@@ -168,9 +168,29 @@ impl StructuredState {
 
         if let Some(plan) = self.plan_snapshot.as_ref() {
             out.push_str("\nStrategy metadata\n");
-            if let Some(explanation) = plan.explanation.as_ref() {
-                out.push_str(&format!("{explanation}\n\n"));
-            }
+            append_plan_field(&mut out, "Title", plan.title.as_deref());
+            append_plan_field(&mut out, "Objective", plan.objective.as_deref());
+            append_plan_field(&mut out, "Context", plan.context_summary.as_deref());
+            append_plan_field(&mut out, "Explanation", plan.explanation.as_deref());
+            append_plan_list(&mut out, "Source", &plan.sources_used);
+            append_plan_list(&mut out, "Critical file", &plan.critical_files);
+            append_plan_list(&mut out, "Constraint", &plan.constraints);
+            append_plan_field(
+                &mut out,
+                "Recommended approach",
+                plan.recommended_approach.as_deref(),
+            );
+            append_plan_field(
+                &mut out,
+                "Verification plan",
+                plan.verification_plan.as_deref(),
+            );
+            append_plan_field(
+                &mut out,
+                "Risks and unknowns",
+                plan.risks_and_unknowns.as_deref(),
+            );
+            append_plan_field(&mut out, "Handoff packet", plan.handoff_packet.as_deref());
             for item in &plan.items {
                 let marker = match item.status {
                     crate::tools::plan::StepStatus::Pending => "[ ]",
@@ -201,6 +221,21 @@ impl StructuredState {
         }
 
         Some(out)
+    }
+}
+
+fn append_plan_field(out: &mut String, label: &str, value: Option<&str>) {
+    if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
+        out.push_str(&format!("- {label}: {value}\n"));
+    }
+}
+
+fn append_plan_list(out: &mut String, label: &str, values: &[String]) {
+    for value in values {
+        let value = value.trim();
+        if !value.is_empty() {
+            out.push_str(&format!("- {label}: {value}\n"));
+        }
     }
 }
 

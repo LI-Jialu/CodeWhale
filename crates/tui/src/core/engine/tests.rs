@@ -3,6 +3,7 @@ use super::*;
 use super::context::TURN_MAX_OUTPUT_TOKENS;
 use crate::models::SystemBlock;
 use crate::test_support::lock_test_env;
+use crate::tools::plan::{PlanItemArg, PlanSnapshot, StepStatus};
 use crate::tools::spec::ToolCapability;
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
@@ -82,6 +83,45 @@ fn build_engine_with_capacity(capacity: CapacityControllerConfig) -> Engine {
     };
     let (engine, _handle) = Engine::new(engine_config, &Config::default());
     engine
+}
+
+#[test]
+fn structured_state_block_includes_rich_plan_artifact() {
+    let state = StructuredState {
+        mode_label: "Plan".to_string(),
+        workspace: PathBuf::from("/workspace/codewhale"),
+        cwd: None,
+        working_set_summary: None,
+        todo_snapshot: None,
+        plan_snapshot: Some(PlanSnapshot {
+            objective: Some("Make Plan mode reviewable".to_string()),
+            context_summary: Some("Grounded in issue #2691".to_string()),
+            sources_used: vec!["gh issue view 2691".to_string()],
+            critical_files: vec!["crates/tui/src/tools/plan.rs".to_string()],
+            constraints: vec!["Preserve legacy payloads".to_string()],
+            recommended_approach: Some("Enrich update_plan".to_string()),
+            verification_plan: Some("Run focused tests".to_string()),
+            risks_and_unknowns: Some("Replay may drift".to_string()),
+            handoff_packet: Some("Next agent should inspect replay".to_string()),
+            items: vec![PlanItemArg {
+                step: "Render rich artifact".to_string(),
+                status: StepStatus::InProgress,
+            }],
+            ..PlanSnapshot::default()
+        }),
+        subagent_snapshots: Vec::new(),
+    };
+
+    let block = state.to_system_block().expect("fork state block");
+
+    assert!(block.contains("Objective: Make Plan mode reviewable"));
+    assert!(block.contains("Context: Grounded in issue #2691"));
+    assert!(block.contains("Source: gh issue view 2691"));
+    assert!(block.contains("Critical file: crates/tui/src/tools/plan.rs"));
+    assert!(block.contains("Constraint: Preserve legacy payloads"));
+    assert!(block.contains("Verification plan: Run focused tests"));
+    assert!(block.contains("Handoff packet: Next agent should inspect replay"));
+    assert!(block.contains("- [~] Render rich artifact"));
 }
 
 #[test]
