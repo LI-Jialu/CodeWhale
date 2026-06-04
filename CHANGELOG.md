@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Appended volatile `<turn_meta>` blocks after user text in outgoing user
   message content arrays so provider prefix caches can keep matching the stable
   user-input prefix across date, route, and working-set changes.
+- Softened contribution intake automation: external issues now receive a warm
+  triage note and are never auto-closed by the contribution gate, while the PR
+  gate copy makes clear that dry-run observations are about maintainer safety,
+  not contributor quality.
+- Documented the agent and sub-agent stewardship ethos so future automation
+  preserves human issue intake, careful PR review, and contributor credit.
 
 ### Community
 
