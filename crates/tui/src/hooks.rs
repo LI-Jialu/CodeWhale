@@ -563,12 +563,15 @@ fn parse_tool_call_before_stdout(stdout: &str) -> ToolCallBeforeStdout {
             };
         }
     };
-    let decision = obj.get("decision").and_then(|v| v.as_str()).and_then(|s| match s {
-        "allow" => Some(ToolCallDecision::Allow),
-        "deny" => Some(ToolCallDecision::Deny),
-        "ask" => Some(ToolCallDecision::Ask),
-        _ => None,
-    });
+    let decision = obj
+        .get("decision")
+        .and_then(|v| v.as_str())
+        .and_then(|s| match s {
+            "allow" => Some(ToolCallDecision::Allow),
+            "deny" => Some(ToolCallDecision::Deny),
+            "ask" => Some(ToolCallDecision::Ask),
+            _ => None,
+        });
     let reason = obj
         .get("reason")
         .and_then(|v| v.as_str())
