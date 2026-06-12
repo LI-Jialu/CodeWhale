@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Localized config editor labels (#2919).** The config editor modal now
   localizes edit labels, default/unavailable placeholders, and effective
   currency hints. Thanks @gordonlu for the PR.
+- **Hotbar number-key dispatch (#3056).** Bare `1`-`8` now trigger bound
+  hotbar slots only when the composer is empty, while `Alt+1`-`Alt+8` trigger
+  slots regardless of composer text and overlays keep key ownership. Thanks
+  @reidliu41 for the PR.
 
 ### Fixed
 

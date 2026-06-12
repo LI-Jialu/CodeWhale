@@ -1744,8 +1744,8 @@ pub struct Config {
     #[serde(default)]
     pub auto: Option<AutoConfig>,
 
-    /// Optional 1-8 hotbar slot bindings (#2064). When absent, future hotbar
-    /// UI slices use the built-in defaults from `codewhale_config`.
+    /// Optional 1-8 hotbar slot bindings (#2064). When absent, hotbar UI and
+    /// dispatch layers use the built-in defaults from `codewhale_config`.
     #[serde(default)]
     pub hotbar: Option<Vec<codewhale_config::HotbarBindingToml>>,
 
@@ -3135,7 +3135,7 @@ impl Config {
         self.update.clone().unwrap_or_default()
     }
 
-    /// Resolve durable hotbar bindings for future render/dispatch layers.
+    /// Resolve durable hotbar bindings for render/dispatch layers.
     #[must_use]
     pub fn resolve_hotbar_bindings(
         &self,

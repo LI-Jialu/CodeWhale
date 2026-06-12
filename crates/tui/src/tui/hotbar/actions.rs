@@ -416,6 +416,7 @@ mod tests {
         let registry = HotbarActionRegistry::with_builtins();
         let reasoning = registry.get("reasoning.cycle").expect("reasoning action");
         let mut app = test_app();
+        app.api_provider = ApiProvider::Deepseek;
         app.reasoning_effort = ReasoningEffort::Off;
 
         assert!(!reasoning.is_active(&app));

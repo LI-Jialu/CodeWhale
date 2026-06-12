@@ -335,7 +335,7 @@ pub(crate) fn active_subagent_status_label(app: &App) -> Option<String> {
     if let Some(elapsed) = elapsed {
         parts.push(elapsed);
     }
-    parts.push("Alt+4".to_string());
+    parts.push("Ctrl+Alt+4".to_string());
     Some(parts.join(" \u{00B7} "))
 }
 

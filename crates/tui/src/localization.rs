@@ -1517,7 +1517,7 @@ fn english(id: MessageId) -> &'static str {
         MessageId::KbCompleteCycleModes => {
             "Complete /command, queue running-turn follow-up, cycle modes; Shift+Tab cycles reasoning effort"
         }
-        MessageId::KbJumpPlanAgentYolo => "Jump directly to Plan / Agent / YOLO mode",
+        MessageId::KbJumpPlanAgentYolo => "Trigger hotbar slots",
         MessageId::KbAltJumpPlanAgentYolo => "Alternative jump to Plan / Agent / YOLO mode",
         MessageId::KbFocusSidebar => {
             "Focus Work / Tasks / Agents / Context / Auto sidebar; Ctrl+Alt+0 hides it"
@@ -2107,7 +2107,7 @@ fn vietnamese(id: MessageId) -> Option<&'static str> {
         MessageId::KbCompleteCycleModes => {
             "Hoàn thành /command, xếp hàng theo dõi lượt đang chạy, chuyển đổi chế độ; Shift+Tab để chuyển đổi mức độ suy luận"
         }
-        MessageId::KbJumpPlanAgentYolo => "Nhảy trực tiếp sang chế độ Plan / Agent / YOLO",
+        MessageId::KbJumpPlanAgentYolo => "Kích hoạt các ô hotbar",
         MessageId::KbAltJumpPlanAgentYolo => {
             "Phím tắt thay thế để nhảy sang chế độ Plan / Agent / YOLO"
         }
@@ -2828,7 +2828,7 @@ fn japanese(id: MessageId) -> Option<&'static str> {
         MessageId::KbCompleteCycleModes => {
             "/command を補完、実行中ターンのフォローアップをキュー、モードを切り替え；Shift+Tab で推論強度を切り替え"
         }
-        MessageId::KbJumpPlanAgentYolo => "Plan / Agent / YOLO モードに直接ジャンプ",
+        MessageId::KbJumpPlanAgentYolo => "ホットバースロットを起動",
         MessageId::KbAltJumpPlanAgentYolo => "Plan / Agent / YOLO モードへの代替ジャンプ",
         MessageId::KbFocusSidebar => {
             "Work / Tasks / Agents / Context / Auto / Hidden サイドバーにフォーカス"
@@ -3348,7 +3348,7 @@ fn chinese_simplified(id: MessageId) -> Option<&'static str> {
         MessageId::KbCompleteCycleModes => {
             "补全 /command、排队运行轮次跟进、切换模式；Shift+Tab 切换推理强度"
         }
-        MessageId::KbJumpPlanAgentYolo => "直接跳转到 Plan / Agent / YOLO 模式",
+        MessageId::KbJumpPlanAgentYolo => "触发快捷栏槽位",
         MessageId::KbAltJumpPlanAgentYolo => "替代快捷键跳转到 Plan / Agent / YOLO 模式",
         MessageId::KbFocusSidebar => "聚焦 Work / 任务 / 代理 / Context / 自动 / 隐藏侧边栏",
         MessageId::KbTogglePlanAgent => "在 Plan 和 Agent 模式之间切换",
@@ -3896,7 +3896,7 @@ fn portuguese_brazil(id: MessageId) -> Option<&'static str> {
         MessageId::KbCompleteCycleModes => {
             "Completar /command, enfileirar follow-up, ciclar modos; Shift+Tab cicla esforço de raciocínio"
         }
-        MessageId::KbJumpPlanAgentYolo => "Pular direto para modo Plan / Agent / YOLO",
+        MessageId::KbJumpPlanAgentYolo => "Acionar slots da hotbar",
         MessageId::KbAltJumpPlanAgentYolo => "Salto alternativo para modo Plan / Agent / YOLO",
         MessageId::KbFocusSidebar => {
             "Focar barra lateral Work / Tasks / Agents / Context / Auto / Ocultar"
@@ -4492,7 +4492,7 @@ fn spanish_latin_america(id: MessageId) -> Option<&'static str> {
         MessageId::KbCompleteCycleModes => {
             "Completar /command, encolar follow-up, ciclar modos; Shift+Tab cicla esfuerzo de razonamiento"
         }
-        MessageId::KbJumpPlanAgentYolo => "Saltar directo a modo Plan / Agent / YOLO",
+        MessageId::KbJumpPlanAgentYolo => "Activar ranuras de la hotbar",
         MessageId::KbAltJumpPlanAgentYolo => "Salto alternativo a modo Plan / Agent / YOLO",
         MessageId::KbFocusSidebar => {
             "Enfocar barra lateral Work / Tasks / Agents / Context / Auto / Ocultar"
