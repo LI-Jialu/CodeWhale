@@ -566,7 +566,7 @@ mod tests {
             u64::MAX
         );
 
-        for value in [json!(-1), json!(3.14), json!("42")] {
+        for value in [json!(-1), json!(2.5), json!("42")] {
             assert!(matches!(
                 required_u64(&json!({"count": value}), "count"),
                 Err(ToolError::MissingField { .. })
