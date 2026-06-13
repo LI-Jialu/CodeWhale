@@ -32,6 +32,10 @@
 //! * No `+x` is granted on extracted files. The optional `/skill trust <name>`
 //!   command writes a `.trusted` marker; tool-execution gating is a separate
 //!   concern that lives next to the tool registry.
+//! * Claude Code plugin archives that contain multiple skills are rejected with
+//!   an explicit migration message. CodeWhale can install individual
+//!   `SKILL.md` bundles, including `.claude/skills/<name>/SKILL.md`, but it
+//!   does not execute `plugin.json` plugin runtimes or custom command bundles.
 
 use std::fs;
 use std::io::{Read, Write};
@@ -228,6 +232,10 @@ pub enum InstallError {
     MissingFrontmatterField(&'static str),
     #[error("symlinks are not allowed in skill tarballs")]
     SymlinkRejected,
+    #[error(
+        "Claude Code plugin archive contains multiple SKILL.md entries; CodeWhale installs one SKILL.md bundle at a time and does not run plugin.json/custom-command runtimes. Install or migrate an individual skills/<name> directory instead"
+    )]
+    ClaudePluginBundle,
     #[error("skill '{0}' is already installed; use update or remove it first")]
     AlreadyInstalled(String),
     #[error("skill '{0}' was not installed via /skill install (no .installed-from marker)")]
@@ -1081,6 +1089,8 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
     let mut total_size: u64 = 0;
     let mut prefix: Option<String> = None;
     let mut skill_md_relative: Option<(SkillMdCandidate, Vec<u8>)> = None;
+    let mut skill_md_candidate_count: usize = 0;
+    let mut has_claude_plugin_manifest = false;
     let mut link_paths: Vec<String> = Vec::new();
 
     for entry in archive
@@ -1097,6 +1107,9 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
         let path_str = path.to_string_lossy().into_owned();
         if !is_safe_path(&path) {
             return Err(InstallError::PathTraversal(path_str).into());
+        }
+        if is_claude_plugin_manifest_path(&path) {
+            has_claude_plugin_manifest = true;
         }
 
         // Track total size against `max_size` (uncompressed). We honor `header
@@ -1144,6 +1157,7 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
         if entry_type.is_file() {
             let stripped = strip_prefix(&path_str, prefix.as_deref().unwrap_or(""));
             if let Some(candidate) = skill_md_candidate(&stripped) {
+                skill_md_candidate_count += 1;
                 let mut buf = Vec::new();
                 entry
                     .read_to_end(&mut buf)
@@ -1162,6 +1176,9 @@ fn scan_tarball(bytes: &[u8], max_size: u64) -> Result<TarballScan> {
     }
 
     let prefix = prefix.unwrap_or_default();
+    if has_claude_plugin_manifest && skill_md_candidate_count > 1 {
+        return Err(InstallError::ClaudePluginBundle.into());
+    }
     let (skill_md, skill_md_bytes) = skill_md_relative
         .ok_or(InstallError::MissingSkillMd)
         .map_err(anyhow::Error::from)?;
@@ -1230,6 +1247,21 @@ fn skill_md_candidate(stripped_path: &str) -> Option<SkillMdCandidate> {
     }
 
     None
+}
+
+fn is_claude_plugin_manifest_path(path: &Path) -> bool {
+    let parts: Vec<String> = path
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(part) => Some(part.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect();
+
+    parts.windows(2).any(|window| {
+        window[0].eq_ignore_ascii_case(".claude-plugin")
+            && window[1].eq_ignore_ascii_case("plugin.json")
+    })
 }
 
 fn extract_into(scan: &TarballScan, bytes: &[u8], dest: &Path, max_size: u64) -> Result<()> {
