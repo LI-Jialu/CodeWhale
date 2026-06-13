@@ -944,6 +944,12 @@ pub(crate) fn render_core_tool_taxonomy_body(mode: AppMode) -> String {
     if let Some(verification) = render_core_tool_group(TOOL_TAXONOMY_VERIFICATION, &core_tools) {
         sentences.push(format!("Use {verification} for verification."));
     }
+    if core_tools.contains(&"run_verifiers") {
+        sentences.push(
+            "For long build/test/lint verifier suites, call `run_verifiers` with `background: true` or use `task_shell_start`, then poll while continuing independent inspection."
+                .to_string(),
+        );
+    }
 
     debug_assert!(
         !sentences.is_empty(),

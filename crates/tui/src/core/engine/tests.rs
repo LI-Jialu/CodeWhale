@@ -572,6 +572,37 @@ fn background_shell_starts_batch_with_readonly_tools_when_auto_approved() {
 }
 
 #[test]
+fn background_verifier_starts_batch_with_readonly_tools_when_auto_approved() {
+    let mut shell_a = make_plan_at(0, true, true, false, false);
+    shell_a.name = "exec_shell".to_string();
+    shell_a.input = json!({"command": "git status -s"});
+
+    let mut verifier = make_plan_at(1, false, false, false, false);
+    verifier.name = "run_verifiers".to_string();
+    verifier.input = json!({"profile": "rust", "level": "full", "background": true});
+    verifier.detached_start = true;
+
+    let mut shell_b = make_plan_at(2, true, true, false, false);
+    shell_b.name = "exec_shell".to_string();
+    shell_b.input = json!({"command": "rg TODO crates/tui/src/core"});
+
+    let batches = plan_tool_execution_batches(vec![shell_a, verifier, shell_b]);
+    assert_eq!(batches.len(), 1);
+
+    match &batches[0] {
+        ToolExecutionBatch::Parallel(plans) => {
+            assert_eq!(
+                plans.iter().map(|plan| plan.index).collect::<Vec<_>>(),
+                vec![0, 1, 2]
+            );
+        }
+        ToolExecutionBatch::Serial(_) => {
+            panic!("background verifier start should join parallel batch")
+        }
+    }
+}
+
+#[test]
 fn successful_update_plan_ends_plan_mode_turn_immediately() {
     assert!(should_stop_after_plan_tool(
         AppMode::Plan,
