@@ -1,116 +1,234 @@
 # CodeWhale
 
-> A community-built agentic terminal for coding with the best available models.
+> The terminal coding agent for any model — open models first.
 
-[简体中文 README](README.zh-CN.md) · [日本語 README](README.ja-JP.md) · [Tiếng Việt README](README.vi.md)
+A Rust TUI and CLI, 24 providers. DeepSeek, OpenRouter, Hugging Face, and local
+vLLM/SGLang/Ollama are first-class routes, and CodeWhale speaks natively to
+Anthropic Claude and OpenAI when that's what you have. Approval-gated tools, OS
+sandboxing, and `/restore` rollback for every turn.
+
+[简体中文 README](README.zh-CN.md) · [日本語 README](README.ja-JP.md) · [Tiếng Việt README](README.vi.md) · [codewhale.net](https://codewhale.net/) · [Install guide](docs/INSTALL.md) · [Provider registry](docs/PROVIDERS.md) · [Changelog](CHANGELOG.md)
 
 [![CI](https://github.com/Hmbown/CodeWhale/actions/workflows/ci.yml/badge.svg)](https://github.com/Hmbown/CodeWhale/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/codewhale-cli?label=crates.io)](https://crates.io/crates/codewhale-cli)
+[![npm](https://img.shields.io/npm/v/codewhale?label=npm)](https://www.npmjs.com/package/codewhale)
 [![DeepWiki project index](https://img.shields.io/badge/DeepWiki-project-blue)](https://deepwiki.com/Hmbown/CodeWhale)
 
-![codewhale screenshot](assets/screenshot.png)
-
-## What is CodeWhale
-
-CodeWhale is an open-source terminal agent you run locally to do real work in
-your repositories — read code, run commands, edit files, and ship patches — with
-the model *you* choose. It pairs a full tool surface (shell, file edits, git,
-web, MCP, and sub-agents) with approval gates, snapshots you can roll back, and
-sessions you can resume.
-
-It started as a DeepSeek-inspired TUI. The community turned it into something
-broader: a harness that works with the best models available to the most people,
-whichever provider that means for you. DeepSeek remains first-class here; it is
-no longer the only good route, and it is not a requirement.
-
-Everything runs on your machine. You keep your keys, your repos, and your
-judgment in the loop.
-
-## Why people use it
-
-- **Approval-gated tools.** File edits, shell, git, web, MCP, and sub-agent
-  calls all route through a sandbox and an approval policy you control.
-- **Sub-agents & fleet.** Fan out parallel investigation or implementation
-  across headless sub-agent workers, and orchestrate multi-step runs.
-- **Snapshots & rollback.** Every turn is snapshotted in side-git, so
-  `/restore` undoes a change without touching your repo's `.git`.
-- **Live diagnostics.** Language servers light up after edits where available, so
-  you see type errors and warnings as they happen.
-- **Durable sessions.** Resume, fork, and relay handoffs between turns, sessions,
-  and machines — plus runtime APIs for editors and GUIs.
-- **Bring your own model.** Route each task to the provider that fits it best.
-
-## Supported models & providers
-
-CodeWhale ships first-class routes for the providers people actually use. Bring a
-key and pick the model that fits the task:
-
-- **DeepSeek** — V4 Pro / Flash, plus DeepSeek-compatible gateways
-- **GLM / Z.ai** — GLM-5.1, GLM-5.2 (Z.ai Coding Plan)
-- **Kimi (Moonshot)** — Kimi K2.6 / K2.7 Code
-- **MiniMax** — first-party route
-- **OpenRouter** — hundreds of models behind one key
-- **NVIDIA NIM · Xiaomi MiMo · SiliconFlow · Fireworks · Novita · StepFun / StepFlash**
-- **Self-hosted** — vLLM, SGLang, Ollama
-- **Any OpenAI-compatible gateway**
-
-Switch with `/provider` and `/model`. See [docs/PROVIDERS.md](docs/PROVIDERS.md)
-for credentials, base URLs, and capability boundaries.
+![CodeWhale running in a terminal](assets/screenshot.png)
 
 ## Install
 
 ```bash
-cargo install codewhale-cli --locked
-cargo install codewhale-tui --locked
-codewhale --version
+npm install -g codewhale
+codewhale --version   # 0.8.61
 ```
 
-On first launch, CodeWhale asks for a provider key and stores it in
-`~/.codewhale/config.toml`. Legacy `~/.deepseek/` config is still read for
-compatibility.
-
-Other install paths:
+The npm wrapper (Node 18+) downloads SHA-256-verified binaries from GitHub
+Releases and installs `codewhale`, `codew`, and `codewhale-tui`. Prefer
+building from source? Use cargo (Rust 1.88+):
 
 ```bash
-# npm wrapper
-npm install -g codewhale
+cargo install codewhale-cli --locked
+cargo install codewhale-tui --locked
+```
 
-# Platform archives attached to GitHub Releases
-# https://github.com/Hmbown/CodeWhale/releases
+Every other path:
 
-# CNB mirror, if GitHub is hard to reach
+```bash
+# Docker
+docker pull ghcr.io/hmbown/codewhale:latest
+
+# Nix
+nix run github:Hmbown/CodeWhale
+
+# Windows
+scoop install codewhale        # or the NSIS installer from GitHub Releases
+
+# CNB mirror for users who cannot reliably reach GitHub
 cargo install --git https://cnb.cool/codewhale.net/codewhale --tag v0.8.61 codewhale-cli --locked --force
 cargo install --git https://cnb.cool/codewhale.net/codewhale --tag v0.8.61 codewhale-tui --locked --force
 
-# Homebrew (legacy compatibility while the formula is renamed)
-brew tap Hmbown/deepseek-tui && brew install deepseek-tui
+# Legacy Homebrew compatibility while the formula is renamed
+brew tap Hmbown/deepseek-tui
+brew install deepseek-tui
 ```
 
-For Docker, direct downloads, China mirrors, Windows/Scoop, Nix, checksums, and
-troubleshooting, see [docs/INSTALL.md](docs/INSTALL.md).
+Prebuilt archives for every platform — including Linux riscv64 — are attached
+to [GitHub Releases](https://github.com/Hmbown/CodeWhale/releases). Checksums,
+China mirrors, Windows specifics, and troubleshooting live in
+[docs/INSTALL.md](docs/INSTALL.md).
 
 **Upgrading from the legacy `deepseek-tui` package?** Your config, sessions,
-skills, and MCP settings are preserved. See
-[docs/REBRAND.md](docs/REBRAND.md), then run `codewhale doctor` to confirm.
+skills, and MCP settings are preserved. See [docs/REBRAND.md](docs/REBRAND.md),
+then run `codewhale doctor` to confirm.
 
-## Quick start
+## First Run
 
 ```bash
-codewhale auth set --provider zai     # or: deepseek, openrouter, kimi, ...
+codewhale auth set --provider deepseek
 codewhale auth status
 codewhale doctor
-codewhale                              # launch the TUI
+codewhale
 ```
+
+Every provider is the same one-line shape: `--provider openrouter`,
+`--provider moonshot`, or point `vllm`, `sglang`, or `ollama` at your own
+localhost runtime with no key at all. Have a Claude key instead? Run
+`codewhale auth set --provider anthropic` — or just export
+`ANTHROPIC_API_KEY` — and the native Messages adapter takes it from there.
+
+Keys land in `~/.codewhale/config.toml`; legacy `~/.deepseek/` config is still
+read for compatibility.
 
 Useful in-session commands:
 
-- `/provider` and `/model` — choose the route and model.
-- `/config` — edit runtime settings.
-- `/statusline` — current route, cost, and session state.
-- `/skills` — load reusable workflows from `~/.codewhale/skills/`.
-- `/restore` — roll back a prior turn from side-git snapshots.
-- `! cargo test` — run a shell command through the normal approval and sandbox
-  path.
+- `/provider` and `/model` switch the route and model mid-session.
+- `/restore` rolls back a prior turn from side-git snapshots.
+- `/skills` loads reusable workflows from `~/.codewhale/skills/`.
+- `/config` edits runtime settings; `/statusline` shows the current route,
+  cost, and session state.
+- `! cargo test -p codewhale-tui` runs any shell command through the normal
+  approval and sandbox path.
+
+Headless, for scripts and CI:
+
+```bash
+codewhale exec --allowed-tools read_file,exec_shell --max-turns 10 "fix the failing test"
+```
+
+## What Ships
+
+A terminal-native agent harness — TUI + CLI, 16 Rust crates — where the safety
+rails are runtime mechanisms, not advice the model has to remember:
+
+- **Approval-gated tools with OS sandboxing.** File, shell, git, web, MCP, and
+  sub-agent tools run behind explicit approval gates and sandbox backends
+  (bwrap, Landlock, Seatbelt, seccomp).
+- **Rollback you can trust.** Side-git snapshots and `/restore`, kept outside
+  your repo's `.git` — undoing a turn never touches your history.
+- **Hooks v2** *(0.8.58)*. `tool_call_before` hooks return JSON
+  `allow`/`deny`/`ask` decisions with deny-wins precedence, glob matchers, and
+  project-local `.codewhale/hooks.toml`.
+- **Concurrent sub-agents with provider-aware routing** *(0.8.58)*. Parallel
+  investigation and implementation, with big/cheap model tiers resolved per
+  provider — no hardcoded model ids.
+- **Durable sessions.** Forks, relay handoffs, and a cross-session
+  disk-backed prompt cache that stays byte-stable across Plan/Agent/YOLO mode
+  flips *(0.8.56)*. Turns survive system sleep *(0.8.57)*: suspend mid-stream,
+  wake, and the request is silently re-issued instead of failing the turn.
+- **Headless mode.** `codewhale exec` with `--allowed-tools`,
+  `--disallowed-tools` (deny wins), `--max-turns`, and
+  `--append-system-prompt` *(0.8.58)* for scripts and CI.
+- **Embedded everywhere.** HTTP/SSE and ACP runtime APIs, a VS Code extension
+  (Phase 0), and Telegram/Feishu bridges.
+- **Daily-driver polish.** MCP client *and* server, reusable skills, 7-locale
+  localization (approval dialogs included since 0.8.56), and speech/TTS via
+  Xiaomi MiMo.
+
+### Any model, open models first
+
+Twenty-four providers route through the same harness, same constitution, same
+tools:
+
+- **Open models, hosted:** `deepseek` (first among equals), `openrouter`,
+  `huggingface` (Inference Providers), `moonshot` (Kimi), `zai` (GLM),
+  `minimax`, `volcengine` (Ark), `nvidia-nim`, `together`, `fireworks`,
+  `novita`, `siliconflow` / `siliconflow-CN`, `arcee`, `xiaomi-mimo`,
+  `stepfun`, `atlascloud`, `wanjie-ark`, plus a generic `openai`-compatible
+  route for any gateway.
+- **Open models, self-hosted:** `vllm`, `sglang`, and `ollama` against your
+  own localhost endpoints — no key required.
+- **Closed providers, natively:** `anthropic` through a dedicated
+  `/v1/messages` adapter *(0.8.58)* with adaptive thinking, prompt-cache
+  breakpoints, and signed-thinking replay — not an OpenAI-dialect shim — and
+  `openai-codex`, which reuses an existing ChatGPT/Codex CLI login.
+
+Routing is more than a base URL swap: `/reasoning` effort is translated into
+each provider's wire dialect, sub-agent tiers resolve per provider, and the
+system prompt's model facts are templated per-model instead of hardcoded
+*(0.8.58)*. Switch mid-session with `/provider` and `/model`. The full
+registry — credentials, base URLs, capability boundaries — lives in
+[docs/PROVIDERS.md](docs/PROVIDERS.md).
+
+The version tags above mark what landed in the last three releases
+(0.8.56 → 0.8.58). Full details in [CHANGELOG.md](CHANGELOG.md).
+
+## The Idea
+
+Most coding agents start by adding power: more tools, more context, more
+autonomy. CodeWhale starts by assigning responsibility.
+
+An agent that edits your repo should have an address — this terminal, this
+user, this branch, this session. Not a persona; a return address. When
+something breaks, "the model did it" is not an answer. "This instance, in this
+session, after this approval" is.
+
+Then it needs law. A real working session is a conflict stack: your current
+request, the repo's instructions, fresh shell output, stale memory, and a
+previous agent's handoff all compete inside the same turn. The **CodeWhale
+Constitution** fixes the order of authority:
+
+1. **User intent is sovereign.** Your current request outranks stale repo
+   guidance, memory, previous handoffs, and personality overlays.
+2. **Repo law is explicit.** Add `.codewhale/constitution.json` to declare
+   durable project authority: protected invariants, branch policy,
+   verification rules.
+3. **Evidence outranks narration.** Tool output beats a confident guess. A
+   failed `cargo test` is reported as a failed `cargo test`, never summarized
+   into optimism. Verification is part of the task, not an epilogue.
+4. **Memory comes last.** Useful, never authoritative.
+
+The policy that matters is enforced in code, not prompted: approval gates,
+sandboxing, snapshots, rollback, and tool schemas are runtime mechanisms the
+model cannot talk its way around.
+
+And none of that law lives in the model — which is why the model is swappable.
+The harness carries the constitution; the model supplies the reasoning.
+DeepSeek and the open-weight world are first-class citizens, a box on your LAN
+running vLLM or Ollama is a full peer, and when what you have is a Claude or
+OpenAI key, CodeWhale speaks those APIs natively too.
+
+That is the product: not a bigger model, but a stricter harness around
+whichever model you choose. Swap the model; the law holds.
+
+## Where Details Live
+
+The README carries the idea and the first path. The details live in docs and on
+[codewhale.net](https://codewhale.net/):
+
+- [User guide](docs/GUIDE.md) — first hour with CodeWhale.
+- [Install guide](docs/INSTALL.md) — every package path and troubleshooting.
+- [Configuration](docs/CONFIGURATION.md) — config files, repo constitution, and
+  provider settings.
+- [Provider registry](docs/PROVIDERS.md) — model routes, credentials, base URLs,
+  and capability boundaries.
+- [Modes](docs/MODES.md) — Agent, Plan, and YOLO.
+- [Sub-agents](docs/SUBAGENTS.md) — roles, lifecycle, output contract, and
+  recovery behavior.
+- [Fleet](docs/FLEET.md) — multi-worker runs and headless orchestration.
+- [WhaleFlow authoring](docs/WHALEFLOW_AUTHORING.md) — declarative workflows.
+- [MCP](docs/MCP.md) — connecting external tool servers and running CodeWhale
+  as an MCP server itself.
+- [Runtime API](docs/RUNTIME_API.md) — HTTP/SSE, ACP, mobile, and GUI/editor
+  integration contracts.
+- [Model Lab](docs/MODEL_LAB.md) — open-model discovery and evaluation roadmap.
+- [Architecture](docs/ARCHITECTURE.md) — crate layout, runtime flow, tool system,
+  extension points, and security model.
+- [Keybindings](docs/KEYBINDINGS.md) · [Sandbox & approvals](docs/SANDBOX.md)
+  · [Accessibility](docs/ACCESSIBILITY.md) · [Docker](docs/DOCKER.md)
+  · [Memory](docs/MEMORY.md)
+- [Full docs index](docs) — everything else.
+
+## v0.9.0 Track
+
+v0.9.0 is the current integration lane. The work gathering there:
+
+- stronger relay and handoff surfaces between sessions and agents;
+- calmer transcripts for dense tool runs;
+- runtime APIs for VS Code and GUI clients;
+- WhaleFlow branch/leaf workflow orchestration.
+
+Release-by-release details live in [CHANGELOG.md](CHANGELOG.md).
 
 ## Community & Contributing
 
@@ -132,48 +250,22 @@ commit — and recurring contributors stay credited in the public record.
 - [Code of Conduct](CODE_OF_CONDUCT.md) — be excellent to each other.
 - [Contributors](docs/CONTRIBUTORS.md) — the people who've shaped CodeWhale.
 
-## Docs
+The maintainer posture is to keep that door open while protecting release
+quality:
 
-The README gets you started; the details live in [`docs/`](docs) and on
-[codewhale.net](https://codewhale.net/):
+- Issues should stay human-readable and actionable. Intake automation is
+  advisory unless a maintainer deliberately enables enforcement.
+- PRs are reviewed from code, tests, linked issues, and runtime behavior, not
+  from title alone.
+- If a PR is too broad to merge directly, maintainers may harvest the safe part
+  into a narrower branch, then credit the author and explain what landed.
+- Co-author trailers should use mappable GitHub noreply identities from
+  `.github/AUTHOR_MAP`; reporters and repro authors are thanked in changelogs,
+  release notes, and closure comments.
+- Recurring contributors can be added to `.github/APPROVED_CONTRIBUTORS` so
+  dry-run gates stay out of their way.
 
-- [User guide](docs/GUIDE.md) — your first hour with CodeWhale.
-- [Install guide](docs/INSTALL.md) — every package path and troubleshooting.
-- [Configuration](docs/CONFIGURATION.md) — config files and provider settings.
-- [Providers](docs/PROVIDERS.md) — model routes, credentials, and capabilities.
-- [Modes](docs/MODES.md) — Agent, Plan, and YOLO.
-- [Sub-agents](docs/SUBAGENTS.md) — roles, lifecycle, and recovery.
-- [Fleet](docs/FLEET.md) — multi-worker runs and headless orchestration.
-- [WhaleFlow authoring](docs/WHALEFLOW_AUTHORING.md) — declarative workflows.
-- [Runtime API](docs/RUNTIME_API.md) — HTTP/SSE, ACP, and editor/GUI contracts.
-- [MCP](docs/MCP.md) — Model Context Protocol servers.
-- [Architecture](docs/ARCHITECTURE.md) — crate layout, runtime flow, security.
-- [Keybindings](docs/KEYBINDINGS.md) — the full key map.
-- [Sandbox & approvals](docs/SANDBOX.md) · [Accessibility](docs/ACCESSIBILITY.md)
-  · [Docker](docs/DOCKER.md) · [Memory](docs/MEMORY.md)
-- [Full docs index](docs) — everything else.
-
-## Operating identity & the Constitution
-
-CodeWhale is opinionated about *how* an agent should behave in a real workspace,
-not just what it can do. That opinion is written down as the
-[CodeWhale Constitution](docs/AGENT_ETHOS.md), and it boils down to a few ideas:
-
-- **The agent has an address.** It is an instance in *this* terminal and *this*
-  workspace — not a model card or a leaderboard score.
-- **Evidence outranks narration.** Tool output beats a guess; a failed command is
-  reported as a failed command; verification is part of the task.
-- **User intent stays sovereign.** Your current request outranks stale repo
-  guidance, memory, and previous handoffs.
-- **Local law is explicit.** Repositories can add `.codewhale/constitution.json`
-  for durable project authority, protected invariants, and verification rules.
-- **Runtime policy is enforced.** Modes, approval gates, sandboxing, rollback,
-  and tool schemas are code, not advice the model has to remember.
-
-The product is the ordering layer around the model: who is acting, whose law
-applies, what evidence exists, and how the next human or agent can continue. If
-that framing is useful to you, great; if not, you can ignore it and just use the
-tools.
+Support: [Buy me a coffee](https://www.buymeacoffee.com/hmbown).
 
 ## Thanks
 

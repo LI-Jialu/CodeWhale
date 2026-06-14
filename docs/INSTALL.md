@@ -110,15 +110,16 @@ a download sourced from an impersonating repository or mirror.
 
 ## 3. Install via npm
 
-The `codewhale` npm wrapper is available for v0.8.56 and later.
+npm is the recommended install path. The `codewhale` wrapper is published at
+v0.8.61 (Node 18+; wrapper available for v0.8.56 and later).
 
 ```bash
 npm install -g codewhale
-codewhale
+codewhale --version   # 0.8.61
 ```
 
 `postinstall` downloads the right pair of binaries from the matching GitHub
-release, verifies a SHA-256 manifest, and exposes both `codewhale` and
+release, verifies a SHA-256 manifest, and exposes `codewhale`, `codew`, and
 `codewhale-tui` on your `PATH`.
 
 Useful environment variables:
@@ -278,6 +279,22 @@ Install into a NixOS module:
   };
 }
 ```
+
+---
+
+## Homebrew (legacy tap)
+
+Homebrew currently ships only the legacy `deepseek-tui` tap, kept for
+compatibility while the formula is renamed to `codewhale`. It installs the
+same current-release binaries:
+
+```bash
+brew tap Hmbown/deepseek-tui
+brew install deepseek-tui
+```
+
+Update with `brew upgrade deepseek-tui`. There is no `codewhale` formula yet;
+once the rename lands, this section will switch to it.
 
 ---
 
@@ -548,7 +565,8 @@ cargo build --release
 Both binaries appear in `target\release\codewhale.exe` and
 `target\release\codewhale-tui.exe`.
 
-> For v0.8.56, install via Cargo, GitHub Releases, CNB, npm, or build from source.
+> Prefer not to build? Install via npm, Cargo, GitHub Releases, or the CNB
+> mirror — see the sections above.
 
 ---
 
