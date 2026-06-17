@@ -3016,7 +3016,13 @@ mod tests {
         let rendered = buffer_text(&buf, area);
 
         assert_eq!(app.collapsed_cell_map, vec![0, 1, 2]);
-        assert!(rendered.contains("full output from list_dir"), "{rendered}");
+        assert!(rendered.contains("read_file.txt"), "{rendered}");
+        assert!(rendered.contains("list_dir.txt"), "{rendered}");
+        assert!(rendered.contains("web_search.txt"), "{rendered}");
+        assert!(
+            !rendered.contains("full output from list_dir"),
+            "{rendered}"
+        );
     }
 
     #[test]

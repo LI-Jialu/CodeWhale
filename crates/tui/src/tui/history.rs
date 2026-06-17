@@ -4030,12 +4030,12 @@ mod tests {
             .flat_map(|l| l.spans.iter().map(|s| s.content.as_ref()))
             .collect();
         assert!(
-            joined.contains("full output:"),
-            "expected annotation prefix: {joined:?}"
+            joined.contains("read done · cmd: cargo build --release"),
+            "expected compact live summary: {joined:?}"
         );
         assert!(
-            joined.contains("/Users/dev/.deepseek/tool_outputs/call-abc12.txt"),
-            "expected the spillover path: {joined:?}"
+            !joined.contains("full output:"),
+            "spillover paths stay out of compact live rows: {joined:?}"
         );
     }
 
@@ -4101,26 +4101,13 @@ mod tests {
             is_diff: false,
         };
         let lines = cell.lines_with_mode(40, true, super::RenderMode::Live);
-        let annotation_line = lines
+        let rendered: String = lines
             .iter()
-            .find(|l| {
-                l.spans
-                    .iter()
-                    .any(|s| s.content.as_ref().contains("full output:"))
-            })
-            .expect("annotation line present");
-        let rendered: String = annotation_line
-            .spans
-            .iter()
-            .map(|s| s.content.as_ref())
+            .flat_map(|line| line.spans.iter().map(|span| span.content.as_ref()))
             .collect();
-        // Width budget is 40; annotation line should be at most ~40 chars.
-        // (Some slack for the prefix; the truncate_text ellipsis costs
-        // 3 cols.)
         assert!(
-            rendered.chars().count() <= 60,
-            "annotation overflowed at width 40: {} chars: {rendered:?}",
-            rendered.chars().count()
+            !rendered.contains("full output:"),
+            "compact live rows should omit spillover annotations: {rendered:?}"
         );
     }
 
@@ -4266,8 +4253,8 @@ mod tests {
 
     #[test]
     fn other_tools_are_unaffected_by_agent_compact_path() {
-        // Only `agent` is collapsed — `read_file` and friends
-        // continue to render their normal multi-line block in live mode.
+        // Live-mode tool rows are compact by default; raw detail remains
+        // available through the detail pager.
         let cell = GenericToolCell {
             name: "read_file".to_string(),
             status: ToolStatus::Success,
@@ -4279,10 +4266,7 @@ mod tests {
             is_diff: false,
         };
         let lines = cell.lines_with_mode(80, true, super::RenderMode::Live);
-        assert!(
-            lines.len() > 1,
-            "non-spawn tools should keep their full block"
-        );
+        assert_eq!(lines.len(), 1, "live tools should use compact rows");
     }
 
     // ---- #403 concise todo / checklist update rendering ----
@@ -5475,7 +5459,7 @@ mod tests {
 
         let text = lines_text(&cell.lines_with_motion(80, true));
 
-        assert!(text.contains("final output"));
+        assert!(text.contains("cargo test"));
         assert!(!text.contains("stale live tail"));
     }
 

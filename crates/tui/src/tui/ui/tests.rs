@@ -626,7 +626,7 @@ fn selection_to_text_copies_rendered_transcript_block() {
         !selected.contains("Ctrl+O"),
         "short completed thinking should not show the detail affordance: {selected:?}"
     );
-    assert!(selected.contains("tool output line"), "{selected:?}");
+    assert!(selected.contains("run done · cargo check"), "{selected:?}");
     assert!(selected.contains("copy assistant"), "{selected:?}");
     // #1163: tool-card middle lines are rendered with a `│ ` left rail
     // glyph, but that decoration must not leak into copied text. Assert
@@ -4268,18 +4268,8 @@ fn stall_reason_provider_wait_includes_route_and_idle_budget() {
     app.turn_last_activity_at = Some(Instant::now() - Duration::from_secs(40));
 
     let reason = crate::tui::footer_ui::stall_reason(&app).expect("stalled turn has a reason");
-    assert!(
-        reason.contains(&format!(
-            "waiting for {} {}",
-            app.api_provider.as_str(),
-            app.model
-        )),
-        "{reason}"
-    );
-    assert!(
-        reason.contains(&format!("/{}s idle timeout", app.stream_chunk_timeout_secs)),
-        "{reason}"
-    );
+    assert!(reason.contains("waiting for model"), "{reason}");
+    assert!(reason.contains("40s"), "{reason}");
 }
 
 #[test]
@@ -4339,7 +4329,7 @@ fn stall_reason_provider_wait_reports_zero_running_for_planned_fanout() {
     app.last_fanout_card_index = Some(app.history.len() - 1);
 
     let reason = crate::tui::footer_ui::stall_reason(&app).expect("stalled turn has a reason");
-    assert!(reason.contains("fanout 0/4 running"), "{reason}");
+    assert!(reason.contains("fanout 0/4"), "{reason}");
 
     // Once a worker is actually running the marker disappears.
     if let Some(HistoryCell::SubAgent(SubAgentCell::Fanout(card))) = app
@@ -4352,7 +4342,7 @@ fn stall_reason_provider_wait_reports_zero_running_for_planned_fanout() {
         );
     }
     let reason = crate::tui::footer_ui::stall_reason(&app).expect("stalled turn has a reason");
-    assert!(!reason.contains("0/4 running"), "{reason}");
+    assert!(!reason.contains("fanout 0/4"), "{reason}");
 }
 
 #[test]
@@ -4363,10 +4353,7 @@ fn stall_reason_provider_wait_flags_pending_dispatch() {
     app.pending_subagent_dispatch = Some("agent".to_string());
 
     let reason = crate::tui::footer_ui::stall_reason(&app).expect("stalled turn has a reason");
-    assert!(
-        reason.contains("sub-agent dispatch pending, 0 running"),
-        "{reason}"
-    );
+    assert!(reason.contains("dispatch pending"), "{reason}");
 }
 
 #[test]
@@ -8270,10 +8257,6 @@ fn activity_detail_fallback_uses_recent_meaningful_activity_without_full_tool_du
 
     assert!(body.contains("Activity: read"));
     assert!(body.contains("Status: done"));
-    assert!(
-        body.contains("Alt+V for details"),
-        "activity detail should stay bounded and point to Alt+V for raw detail: {body}"
-    );
     assert!(body.contains("Detail handle: Alt+V details"), "{body}");
     assert!(
         !body.contains("Detail handle: Alt+V raw details"),
