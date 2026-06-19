@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **JavaScript execution proxy env handling (#3273, #3331).** `js_execution`
+  now enables Node's environment-proxy mode when proxy variables are present,
+  mirrors lowercase proxy variables for the child process, and backfills
+  `HTTP_PROXY` / `HTTPS_PROXY` from `ALL_PROXY`. Reported by @lordwedggie and
+  harvested from #3331 by @cyq1017.
 - **Legacy app-server non-loopback auth hardening (#3258).** Bare
   `codewhale app-server --host 0.0.0.0` now fails fast unless an explicit
   `--auth-token` or `CODEWHALE_APP_SERVER_TOKEN` is supplied, keeping generated
