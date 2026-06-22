@@ -674,6 +674,20 @@ fn test_mcp_config_rejects_traversal_path() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn mcp_config_rejects_symlinked_config_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("target-mcp.json");
+    let link = dir.path().join("mcp.json");
+    fs::write(&target, r#"{"servers": {}}"#).expect("write target config");
+    std::os::unix::fs::symlink(&target, &link).expect("symlink mcp config");
+
+    let err = load_config(&link).expect_err("symlinked MCP config should fail");
+
+    assert!(format!("{err:#}").contains("regular file"), "got: {err:#}");
+}
+
 #[test]
 fn init_mcp_config_rejects_traversal_before_parent_creation() {
     let dir = tempfile::tempdir().unwrap();

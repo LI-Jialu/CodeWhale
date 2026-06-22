@@ -7,6 +7,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -2597,13 +2598,48 @@ pub struct McpManagerSnapshot {
 
 pub fn load_config(path: &Path) -> Result<McpConfig> {
     validate_mcp_config_path(path)?;
-    if !path.exists() {
+    let Some(contents) = read_mcp_config_file(path)? else {
         return Ok(McpConfig::default());
-    }
-    let contents = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read MCP config {}", path.display()))?;
+    };
     serde_json::from_str(&contents)
         .with_context(|| format!("Failed to parse MCP config {}", path.display()))
+}
+
+fn read_mcp_config_file(path: &Path) -> Result<Option<String>> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => {
+            return Err(err)
+                .with_context(|| format!("Failed to inspect MCP config {}", path.display()));
+        }
+    };
+    let file_type = metadata.file_type();
+    if file_type.is_symlink() || !file_type.is_file() {
+        anyhow::bail!("MCP config path must be a regular file: {}", path.display());
+    }
+
+    let mut file = open_mcp_config_file(path)
+        .with_context(|| format!("Failed to read MCP config {}", path.display()))?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .with_context(|| format!("Failed to read MCP config {}", path.display()))?;
+    Ok(Some(contents))
+}
+
+#[cfg(unix)]
+fn open_mcp_config_file(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+}
+
+#[cfg(not(unix))]
+fn open_mcp_config_file(path: &Path) -> std::io::Result<fs::File> {
+    fs::File::open(path)
 }
 
 pub fn workspace_mcp_config_path(workspace: &Path) -> PathBuf {

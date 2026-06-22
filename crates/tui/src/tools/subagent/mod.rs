@@ -11,6 +11,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -2092,7 +2093,7 @@ impl SubAgentManager {
             return Ok(());
         }
 
-        let raw = fs::read_to_string(&path)?;
+        let raw = read_subagent_state_file(&self.workspace, &path)?;
         let state = serde_json::from_str::<PersistedSubAgentState>(&raw)?;
         if state.schema_version != SUBAGENT_STATE_SCHEMA_VERSION {
             return Err(anyhow!(
@@ -3403,6 +3404,40 @@ fn reject_workspace_relative_symlinks(workspace: &Path, path: &Path) -> Result<(
         }
     }
     Ok(())
+}
+
+fn read_subagent_state_file(workspace: &Path, path: &Path) -> Result<String> {
+    let workspace = normalize_subagent_workspace(workspace);
+    reject_workspace_relative_symlinks(&workspace, path)?;
+    let metadata = fs::symlink_metadata(path)?;
+    let file_type = metadata.file_type();
+    if file_type.is_symlink() || !file_type.is_file() {
+        return Err(anyhow!(
+            "sub-agent state path must be a regular file: {}",
+            path.display()
+        ));
+    }
+
+    let mut file = open_subagent_state_file(path)?;
+    let mut raw = String::new();
+    file.read_to_string(&mut raw)?;
+    Ok(raw)
+}
+
+#[cfg(unix)]
+fn open_subagent_state_file(path: &Path) -> Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(Into::into)
+}
+
+#[cfg(not(unix))]
+fn open_subagent_state_file(path: &Path) -> Result<fs::File> {
+    fs::File::open(path).map_err(Into::into)
 }
 
 fn epoch_millis_now() -> u64 {
