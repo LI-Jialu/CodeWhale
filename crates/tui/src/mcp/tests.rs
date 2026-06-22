@@ -675,6 +675,29 @@ fn test_mcp_config_rejects_traversal_path() {
 }
 
 #[test]
+fn init_mcp_config_rejects_traversal_before_parent_creation() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside_dir = dir.path().join("outside");
+    let path = dir
+        .path()
+        .join("allowed")
+        .join("..")
+        .join("outside")
+        .join("mcp.json");
+
+    let err = init_config(&path, false).expect_err("traversal path should fail");
+
+    assert!(
+        format!("{err:#}").contains("cannot contain '..'"),
+        "got: {err:#}"
+    );
+    assert!(
+        !outside_dir.exists(),
+        "init_config must validate before creating parent directories"
+    );
+}
+
+#[test]
 fn test_mcp_config_manager_actions_round_trip() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("mcp.json");

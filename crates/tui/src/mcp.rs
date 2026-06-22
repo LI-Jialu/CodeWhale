@@ -2770,6 +2770,7 @@ fn mcp_template_json() -> Result<String> {
 }
 
 pub fn init_config(path: &Path, force: bool) -> Result<McpWriteStatus> {
+    validate_mcp_config_path(path)?;
     if path.exists() && !force {
         return Ok(McpWriteStatus::SkippedExists);
     }
