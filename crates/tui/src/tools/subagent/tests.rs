@@ -1435,6 +1435,56 @@ async fn agent_tool_status_returns_running_child_projection() {
 }
 
 #[tokio::test]
+async fn agent_tool_status_reconciles_stale_single_agent_projection() {
+    let tmp = tempdir().expect("tempdir");
+    let inner = SubAgentManager::new(tmp.path().to_path_buf(), 2)
+        .with_running_heartbeat_timeout(Duration::from_secs(30));
+    let current_boot = inner.session_boot_id().to_string();
+    let manager = Arc::new(RwLock::new(inner));
+    let agent_id = "agent_stale_single_status".to_string();
+    let (input_tx, _input_rx) = mpsc::unbounded_channel();
+    let mut agent = SubAgent::new(
+        agent_id.clone(),
+        SubAgentType::General,
+        "probe stale single status".to_string(),
+        make_assignment(),
+        "deepseek-v4-flash".to_string(),
+        None,
+        None,
+        input_tx,
+        tmp.path().to_path_buf(),
+        current_boot,
+    );
+    agent.status = SubAgentStatus::Running;
+    agent.last_activity_at = Instant::now() - Duration::from_secs(31);
+    agent.task_handle = Some(tokio::spawn(async {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+    }));
+    {
+        let mut manager_guard = manager.write().await;
+        manager_guard.agents.insert(agent_id.clone(), agent);
+        manager_guard.register_worker(make_worker_spec(&agent_id, tmp.path().to_path_buf()));
+    }
+
+    let tool = AgentTool::new(Arc::clone(&manager), stub_runtime());
+    let context = ToolContext::new(tmp.path());
+    let result = tool
+        .execute(json!({"action": "status", "agent_id": agent_id}), &context)
+        .await
+        .expect("status action succeeds");
+
+    let metadata = result.metadata.as_ref().expect("status metadata");
+    assert_eq!(metadata["action"], json!("status"));
+    assert_eq!(metadata["status"], json!("cancelled"));
+    assert_eq!(metadata["terminal"], json!(true));
+    assert_eq!(metadata["agent_id"], json!("agent_stale_single_status"));
+    assert!(result.content.contains("agent_stale_single_status"));
+    assert!(result.content.contains("cancelled"));
+    assert!(result.content.contains("Auto-cancelled"));
+    assert_eq!(manager.read().await.running_count(), 0);
+}
+
+#[tokio::test]
 async fn agent_tool_cancel_stops_running_child() {
     let tmp = tempdir().expect("tempdir");
     let manager = Arc::new(RwLock::new(SubAgentManager::new(
